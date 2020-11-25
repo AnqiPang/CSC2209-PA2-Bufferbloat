@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="WebServers">
+    <option name="servers">
+      <webServer id="d67f6308-a61a-4dd7-9160-39f7c43ac8c0" name="mininet">
+        <fileTransfer rootFolder="/home/cs244/cs244-bufferbloat" accessType="SFTP" host="cs244@192.168.56.101" port="22" sshConfigId="e37af832-943f-4134-af59-15984505949b" sshConfig="cs244@cs244@192.168.56.101:22 password">
+          <advancedOptions>
+            <advancedOptions dataProtectionLevel="Private" passiveMode="true" shareSSLContext="true" />
+          </advancedOptions>
+        </fileTransfer>
+      </webServer>
+    </option>
+  </component>
+</project>
