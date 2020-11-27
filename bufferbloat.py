@@ -22,6 +22,8 @@ import sys
 import os
 import math
 
+import helper
+
 # TODO: Don't just read the TODO sections in this code.  Remember that
 # one of the goals of this assignment is for you to learn how to use
 # Mininet. :-)
@@ -81,6 +83,27 @@ class BBTopo(Topo):
         switch = self.addSwitch('s0')
 
         # TODO: Add links with appropriate characteristics
+        # get parameters from args
+        delay = args.delay
+        bw_host = args.bw_host
+        bw_net = args.bw_net
+        maxq = args.maxq
+
+        # add link between h1 and switch with bandwidth bw_host
+        self.addLink(hosts[0], switch,
+                     bw=bw_host,
+                     delay="%sms" % delay,
+                     max_queue_size=maxq)
+
+        # add link between switch and h2 with bandwidth bw_net
+        self.addLink(switch, hosts[1],
+                     bw=bw_net,
+                     delay="%sms" % delay,
+                     max_queue_size=maxq)
+        return
+
+
+
 
 # Simple wrappers around monitoring utilities.  You are welcome to
 # contribute neatly written (using classes) monitoring scripts for
@@ -111,6 +134,9 @@ def start_iperf(net):
     server = h2.popen("iperf -s -w 16m")
     # TODO: Start the iperf client on h1.  Ensure that you create a
     # long lived TCP flow. You may need to redirect iperf's stdout to avoid blocking.
+    h1 = net.get('h1')
+    # -c run iperf on client mode and -t set transmitting time from args
+    client = h1.popen("iperf -c %s -t %s" % (h2.IP(), args.time))
 
 def start_webserver(net):
     h1 = net.get('h1')
@@ -130,7 +156,46 @@ def start_ping(net):
     # until stdout is read. You can avoid this by runnning popen.communicate() or
     # redirecting stdout
     h1 = net.get('h1')
-    popen = h1.popen("echo '' > %s/ping.txt"%(args.dir), shell=True)
+    h2 = net.get('h2')
+    # "-c" set the number of times to send the ping request whose frequency is 10/s,
+    # "-i" set the interval between packet transmissions, which is 0.1
+    popen = h1.popen("ping -c %s -i 0.1 %s > %s/ping.txt" % (args.time*10, h2.IP(), args.dir), shell=True)
+
+
+def measure_curl_time(h1, h2):
+    """
+    Custom function: Executes the curl command for downloading from client to
+    :param h1: the client of the mininet topology
+    :param h2: the server of the mininet topology
+    :return the list of beginning time and the downloading time for the execution of the curl command
+    """
+
+    # communicate returns a tuple(stdout_data, stderr_data)
+    # so we use communicate()[0] to get the downloading time data
+    now = time()
+    # curl = "curl -o /dev/null -s -w %%{time_total} %s/http/index.html > %s/%s" % (h1.IP(), args.dir, download_file)
+    curl = "curl -o /dev/null -s -w %%{time_total} %s/http/index.html" % h1.IP()
+    t = h2.popen(curl, shell=True).communicate()[0]
+
+    return now, float(t)
+
+
+def save_download_file(measurements):
+    """
+    Save the downloading time data to the file "download.txt".
+    :param measurements: the nested list of measurements containing the downloading time data; for example,
+    [[1,1.2],[2,2.1]...], the every list element contains the real time when executing the curl command and
+    the duration for downloading a file
+    """
+    f = open(os.path.join(args.dir, 'download.txt'), 'w')
+    for m in measurements:
+        f.write(str(m[0]) + ',' + str(m[1]) + '\n')
+
+    f.close()
+
+    return
+
+
 
 def bufferbloat():
     if not os.path.exists(args.dir):
@@ -159,12 +224,14 @@ def bufferbloat():
     # Depending on the order you add links to your network, this
     # number may be 1 or 2.  Ensure you use the correct number.
     #
-    # qmon = start_qmon(iface='s0-eth2',
-    #                  outfile='%s/q.txt' % (args.dir))
-    qmon = None
+    qmon = start_qmon(iface='s0-eth2',
+                      outfile='%s/q.txt' % (args.dir))
 
     # TODO: Start iperf, webservers, etc.
-    # start_iperf(net)
+    start_iperf(net)
+    start_webserver(net)
+
+
 
     # Hint: The command below invokes a CLI which you can use to
     # debug.  It allows you to run arbitrary commands inside your
@@ -180,8 +247,15 @@ def bufferbloat():
     # Hint: have a separate function to do this and you may find the
     # loop below useful.
     start_time = time()
+    measurements = []
+    download_times = []
+    h1 = net.get('h1')
+    h2 = net.get('h2')
     while True:
         # do the measurement (say) 3 times.
+        current_time, download_time = measure_curl_time(h1, h2)
+        measurements.append([current_time, download_time])
+        download_times.append(download_time)
         sleep(1)
         now = time()
         delta = now - start_time
@@ -189,9 +263,20 @@ def bufferbloat():
             break
         print "%.1fs left..." % (args.time - delta)
 
+    # save the measurements data containing the curl command start time and
+    # duration time to the local file
+    save_download_file(measurements)
+
     # TODO: compute average (and standard deviation) of the fetch
     # times.  You don't need to plot them.  Just note it in your
     # README and explain.
+    avg = helper.avg(download_times)
+    stdev = helper.stdev(download_times)
+    print "The average downloading time for queue size %s: %lf\n" % (args.maxq, avg)
+    print "The standard deviation of downloading time for queue size %s: %lf\n" % (args.maxq, stdev)
+
+
+
 
     stop_tcpprobe()
     if qmon is not None:

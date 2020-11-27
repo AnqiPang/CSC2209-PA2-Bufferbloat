@@ -74,7 +74,15 @@ for i, f in enumerate(args.files):
     ax.scatter(xaxis, qlens, label=args.legend[i], **get_style(i))
     ax.xaxis.set_major_locator(MaxNLocator(4))
 
-plt.ylabel("Packets")
+# check the which file to read
+# if read q.txt, the yaxis label should be "Packets"
+# if read "download.txt", the yaxis label should be "Download Time s"
+if 'q.txt' in args.files[0]:
+    plt.ylabel("Packets")
+elif 'download.txt' in args.files[0]:
+    plt.ylabel("Download Time(s)")
+
+
 plt.grid(True)
 plt.xlabel("Seconds")
 
