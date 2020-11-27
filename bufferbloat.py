@@ -170,10 +170,9 @@ def measure_curl_time(h1, h2):
     :return the list of beginning time and the downloading time for the execution of the curl command
     """
 
-    # communicate returns a tuple(stdout_data, stderr_data)
+    # communicate returns a tuple (stdout_data, stderr_data)
     # so we use communicate()[0] to get the downloading time data
     now = time()
-    # curl = "curl -o /dev/null -s -w %%{time_total} %s/http/index.html > %s/%s" % (h1.IP(), args.dir, download_file)
     curl = "curl -o /dev/null -s -w %%{time_total} %s/http/index.html" % h1.IP()
     t = h2.popen(curl, shell=True).communicate()[0]
 
@@ -184,13 +183,13 @@ def save_download_file(measurements):
     """
     Save the downloading time data to the file "download.txt".
     :param measurements: the nested list of measurements containing the downloading time data; for example,
-    [[1,1.2],[2,2.1]...], the every list element contains the real time when executing the curl command and
+    [[1,1.2],[2,2.1]...], the every list element contains the real time when start executing the curl command and
     the duration for downloading a file
     """
     f = open(os.path.join(args.dir, 'download.txt'), 'w')
     for m in measurements:
-        f.write(str(m[0]) + ',' + str(m[1]) + '\n')
-
+        row = ','.join(map(str, m)) + '\n'
+        f.write(row)
     f.close()
 
     return
@@ -272,9 +271,18 @@ def bufferbloat():
     # README and explain.
     avg = helper.avg(download_times)
     stdev = helper.stdev(download_times)
-    print "The average downloading time for queue size %s: %lf\n" % (args.maxq, avg)
-    print "The standard deviation of downloading time for queue size %s: %lf\n" % (args.maxq, stdev)
+    print "The average downloading time for queue size %s: %lf\n" \
+          % (args.maxq, avg)
+    print "The standard deviation of downloading time for queue size %s: %lf\n" \
+          % (args.maxq, stdev)
 
+    # save the average and standard deviation of downloading time to local file 'summary.txt'
+    summary_file = open(os.path.join(args.dir, 'summary.txt'), 'w')
+    summary_file.write("The average downloading time for queue size %s: %lf\n"
+                       % (args.maxq, avg))
+    summary_file.write("The standard deviation of downloading time for queue size %s: %lf\n"
+                       % (args.maxq, stdev))
+    summary_file.close()
 
 
 
